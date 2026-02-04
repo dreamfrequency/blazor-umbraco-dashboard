@@ -1,0 +1,68 @@
+## .NET
+bin/
+obj/
+publish/
+out/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+project.lock.json
+*.nuget.props
+*.nuget.targets
+nupkg/
+
+## ASP.NET / Blazor
+wwwroot/css/bundle/
+**/Properties/launchSettings.json
+
+## User-specific files
+*.rsuser
+*.userprefs
+
+## NuGet
+**/[Pp]ackages/*
+!**/[Pp]ackages/build/
+*.nupkg
+
+## Build results
+[Dd]ebug/
+[Rr]elease/
+x64/
+x86/
+[Ww][Ii][Nn]32/
+bld/
+log/
+[Ll]og/
+[Ll]ogs/
+
+## SQLite
+*.db
+*.db-shm
+*.db-wal
+
+## IDE
+.vs/
+.vscode/
+.idea/
+*.swp
+*~
+*.sln.iml
+
+## Rider
+*.sln.DotSettings.user
+
+## Secrets / environment
+appsettings.Development.json
+appsettings.*.local.json
+.env
+.env.*
+
+## OS
+.DS_Store
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+## Claude
+.claude/

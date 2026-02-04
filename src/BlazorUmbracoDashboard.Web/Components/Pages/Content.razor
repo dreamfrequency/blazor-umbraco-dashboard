@@ -1,0 +1,147 @@
+@page "/content"
+@rendermode InteractiveServer
+@inject ContentService ContentService
+@inject NavigationManager Navigation
+@implements IAsyncDisposable
+
+<PageTitle>Content</PageTitle>
+
+<h1>Content Nodes</h1>
+
+<div class="mb-3">
+    <button class="btn btn-primary" @onclick="ShowCreateForm">New Content</button>
+</div>
+
+@if (showCreate)
+{
+    <div class="card mb-3">
+        <div class="card-body">
+            <h5 class="card-title">Create Content Node</h5>
+            <div class="mb-2">
+                <label class="form-label">Name</label>
+                <input type="text" class="form-control" @bind="newName" />
+            </div>
+            <div class="mb-2">
+                <label class="form-label">Content Type</label>
+                <input type="text" class="form-control" @bind="newContentType" />
+            </div>
+            <button class="btn btn-success me-2" @onclick="CreateContent">Save</button>
+            <button class="btn btn-secondary" @onclick="() => showCreate = false">Cancel</button>
+        </div>
+    </div>
+}
+
+@if (content is null)
+{
+    <p>Loading...</p>
+}
+else if (!content.Any())
+{
+    <p>No content nodes found.</p>
+}
+else
+{
+    <table class="table table-striped">
+        <thead>
+            <tr>
+                <th>Name</th>
+                <th>Type</th>
+                <th>Status</th>
+                <th>Created</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var node in content)
+            {
+                <tr>
+                    <td>@node.Name</td>
+                    <td>@node.ContentType</td>
+                    <td>
+                        <span class="badge @(node.Status == "Published" ? "bg-success" : "bg-warning")">
+                            @node.Status
+                        </span>
+                    </td>
+                    <td>@node.CreatedAt.ToString("g")</td>
+                    <td>
+                        <button class="btn btn-sm btn-danger" @onclick="() => DeleteContent(node.Id)">Delete</button>
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+}
+
+@code {
+    private IReadOnlyList<ContentNodeDto>? content;
+    private bool showCreate;
+    private string newName = string.Empty;
+    private string newContentType = string.Empty;
+    private HubConnection? hubConnection;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadContent();
+
+        hubConnection = new HubConnectionBuilder()
+            .WithUrl(Navigation.ToAbsoluteUri("/hubs/dashboard"))
+            .Build();
+
+        await hubConnection.StartAsync();
+    }
+
+    private async Task LoadContent()
+    {
+        content = await ContentService.GetAllContentAsync();
+    }
+
+    private void ShowCreateForm()
+    {
+        showCreate = true;
+        newName = string.Empty;
+        newContentType = string.Empty;
+    }
+
+    private async Task CreateContent()
+    {
+        if (string.IsNullOrWhiteSpace(newName)) return;
+
+        var dto = new ContentNodeDto
+        {
+            Name = newName,
+            ContentType = string.IsNullOrWhiteSpace(newContentType) ? "Page" : newContentType,
+            Status = "Draft"
+        };
+
+        await ContentService.CreateContentAsync(dto, "admin");
+
+        if (hubConnection is not null)
+        {
+            await hubConnection.SendAsync("SendContentUpdate", "Created", newName);
+        }
+
+        showCreate = false;
+        await LoadContent();
+    }
+
+    private async Task DeleteContent(Guid id)
+    {
+        var node = content?.FirstOrDefault(c => c.Id == id);
+        await ContentService.DeleteContentAsync(id, "admin");
+
+        if (hubConnection is not null && node is not null)
+        {
+            await hubConnection.SendAsync("SendContentUpdate", "Deleted", node.Name);
+        }
+
+        await LoadContent();
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        if (hubConnection is not null)
+        {
+            await hubConnection.DisposeAsync();
+        }
+    }
+}

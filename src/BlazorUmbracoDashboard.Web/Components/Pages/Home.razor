@@ -1,0 +1,89 @@
+@page "/"
+@rendermode InteractiveServer
+@inject ContentService ContentService
+@inject NavigationManager Navigation
+@implements IAsyncDisposable
+
+<PageTitle>Dashboard</PageTitle>
+
+<h1>Umbraco Dashboard</h1>
+
+<div class="row mt-4">
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-body">
+                <h5 class="card-title">Content Nodes</h5>
+                <p class="card-text display-4">@contentCount</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-body">
+                <h5 class="card-title">Published</h5>
+                <p class="card-text display-4">@publishedCount</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-body">
+                <h5 class="card-title">Drafts</h5>
+                <p class="card-text display-4">@draftCount</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+@if (notifications.Any())
+{
+    <div class="mt-4">
+        <h4>Live Updates</h4>
+        @foreach (var note in notifications.TakeLast(5))
+        {
+            <div class="alert alert-info py-1">@note</div>
+        }
+    </div>
+}
+
+@code {
+    private int contentCount;
+    private int publishedCount;
+    private int draftCount;
+    private HubConnection? hubConnection;
+    private List<string> notifications = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        var content = await ContentService.GetAllContentAsync();
+        contentCount = content.Count;
+        publishedCount = content.Count(c => c.Status == "Published");
+        draftCount = content.Count(c => c.Status == "Draft");
+
+        hubConnection = new HubConnectionBuilder()
+            .WithUrl(Navigation.ToAbsoluteUri("/hubs/dashboard"))
+            .Build();
+
+        hubConnection.On<string>("ReceiveNotification", (message) =>
+        {
+            notifications.Add(message);
+            InvokeAsync(StateHasChanged);
+        });
+
+        hubConnection.On<string, string>("ReceiveContentUpdate", (action, name) =>
+        {
+            notifications.Add($"{action}: {name}");
+            InvokeAsync(StateHasChanged);
+        });
+
+        await hubConnection.StartAsync();
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        if (hubConnection is not null)
+        {
+            await hubConnection.DisposeAsync();
+        }
+    }
+}
