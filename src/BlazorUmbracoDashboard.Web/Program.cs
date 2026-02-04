@@ -20,11 +20,12 @@ builder.Services.AddSignalR();
 
 var app = builder.Build();
 
-// Auto-migrate database
+// Auto-migrate and seed database
 using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
     db.Database.Migrate();
+    await DbSeeder.SeedAsync(db);
 }
 
 if (!app.Environment.IsDevelopment())
