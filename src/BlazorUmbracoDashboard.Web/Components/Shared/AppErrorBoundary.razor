@@ -1,0 +1,28 @@
+@inherits Microsoft.AspNetCore.Components.Web.ErrorBoundary
+@inject ILogger<AppErrorBoundary> Logger
+
+@if (CurrentException is not null)
+{
+    <div class="alert alert-danger d-flex align-items-center" role="alert">
+        <svg class="bi flex-shrink-0 me-2" width="24" height="24" role="img" aria-label="Danger:">
+            <use xlink:href="#exclamation-triangle-fill"/>
+        </svg>
+        <div>
+            <strong>Something went wrong.</strong>
+            <p class="mb-0 mt-1">An unexpected error occurred. Please try refreshing the page.</p>
+            <button class="btn btn-outline-danger btn-sm mt-2" @onclick="Recover">Try Again</button>
+        </div>
+    </div>
+}
+else
+{
+    @ChildContent
+}
+
+@code {
+    protected override Task OnErrorAsync(Exception exception)
+    {
+        Logger.LogError(exception, "Unhandled component error: {Message}", exception.Message);
+        return Task.CompletedTask;
+    }
+}

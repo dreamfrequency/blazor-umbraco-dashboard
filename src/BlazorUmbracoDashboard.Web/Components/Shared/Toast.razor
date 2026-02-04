@@ -1,0 +1,66 @@
+@implements IDisposable
+@inject ToastService ToastService
+
+<div class="toast-container position-fixed top-0 end-0 p-3" style="z-index: 1080;">
+    @foreach (var toast in ToastService.Toasts)
+    {
+        var cssClass = toast.Level switch
+        {
+            ToastLevel.Success => "text-bg-success",
+            ToastLevel.Error => "text-bg-danger",
+            ToastLevel.Warning => "text-bg-warning",
+            ToastLevel.Info => "text-bg-info",
+            _ => "text-bg-secondary"
+        };
+
+        <div class="toast show @cssClass" role="alert">
+            <div class="d-flex">
+                <div class="toast-body">@toast.Message</div>
+                <button type="button" class="btn-close btn-close-white me-2 m-auto"
+                        @onclick="() => ToastService.Remove(toast.Id)"></button>
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    private Dictionary<Guid, Timer> _timers = new();
+
+    protected override void OnInitialized()
+    {
+        ToastService.OnChange += HandleChange;
+    }
+
+    private void HandleChange()
+    {
+        InvokeAsync(() =>
+        {
+            foreach (var toast in ToastService.Toasts)
+            {
+                if (!_timers.ContainsKey(toast.Id))
+                {
+                    var id = toast.Id;
+                    _timers[id] = new Timer(_ =>
+                    {
+                        InvokeAsync(() =>
+                        {
+                            ToastService.Remove(id);
+                            if (_timers.Remove(id, out var timer))
+                                timer.Dispose();
+                            StateHasChanged();
+                        });
+                    }, null, 3000, Timeout.Infinite);
+                }
+            }
+            StateHasChanged();
+        });
+    }
+
+    public void Dispose()
+    {
+        ToastService.OnChange -= HandleChange;
+        foreach (var timer in _timers.Values)
+            timer.Dispose();
+        _timers.Clear();
+    }
+}

@@ -2,11 +2,15 @@
 @rendermode InteractiveServer
 @inject ContentService ContentService
 @inject NavigationManager Navigation
+@inject ToastService ToastService
 @implements IAsyncDisposable
 
 <PageTitle>Content</PageTitle>
 
 <h1>Content Nodes</h1>
+
+<Toast />
+<ConfirmDialog @ref="confirmDialog" />
 
 <div class="mb-3">
     <button class="btn btn-primary" @onclick="ShowCreateForm">New Content</button>
@@ -33,11 +37,14 @@
 
 @if (content is null)
 {
-    <p>Loading...</p>
+    <LoadingSpinner Text="Loading content..." />
 }
 else if (!content.Any())
 {
-    <p>No content nodes found.</p>
+    <EmptyState Message="No content nodes yet."
+                Icon="bi-file-earmark-text"
+                ActionText="Create First Content"
+                OnAction="ShowCreateForm" />
 }
 else
 {
@@ -64,7 +71,7 @@ else
                     </td>
                     <td>@node.CreatedAt.ToString("g")</td>
                     <td>
-                        <button class="btn btn-sm btn-danger" @onclick="() => DeleteContent(node.Id)">Delete</button>
+                        <button class="btn btn-sm btn-danger" @onclick="() => DeleteContent(node.Id, node.Name)">Delete</button>
                     </td>
                 </tr>
             }
@@ -78,6 +85,7 @@ else
     private string newName = string.Empty;
     private string newContentType = string.Empty;
     private HubConnection? hubConnection;
+    private ConfirmDialog confirmDialog = default!;
 
     protected override async Task OnInitializedAsync()
     {
@@ -106,35 +114,53 @@ else
     {
         if (string.IsNullOrWhiteSpace(newName)) return;
 
-        var dto = new ContentNodeDto
+        try
         {
-            Name = newName,
-            ContentType = string.IsNullOrWhiteSpace(newContentType) ? "Page" : newContentType,
-            Status = "Draft"
-        };
+            var dto = new ContentNodeDto
+            {
+                Name = newName,
+                ContentType = string.IsNullOrWhiteSpace(newContentType) ? "Page" : newContentType,
+                Status = "Draft"
+            };
 
-        await ContentService.CreateContentAsync(dto, "admin");
+            await ContentService.CreateContentAsync(dto, "admin");
 
-        if (hubConnection is not null)
-        {
-            await hubConnection.SendAsync("SendContentUpdate", "Created", newName);
+            if (hubConnection is not null)
+            {
+                await hubConnection.SendAsync("SendContentUpdate", "Created", newName);
+            }
+
+            showCreate = false;
+            ToastService.ShowSuccess($"Content '{newName}' created successfully.");
+            await LoadContent();
         }
-
-        showCreate = false;
-        await LoadContent();
+        catch (Exception)
+        {
+            ToastService.ShowError("Failed to create content. Please try again.");
+        }
     }
 
-    private async Task DeleteContent(Guid id)
+    private async Task DeleteContent(Guid id, string name)
     {
-        var node = content?.FirstOrDefault(c => c.Id == id);
-        await ContentService.DeleteContentAsync(id, "admin");
+        var confirmed = await confirmDialog.ShowAsync($"Delete '{name}'? This action cannot be undone.", "Delete Content");
+        if (!confirmed) return;
 
-        if (hubConnection is not null && node is not null)
+        try
         {
-            await hubConnection.SendAsync("SendContentUpdate", "Deleted", node.Name);
-        }
+            await ContentService.DeleteContentAsync(id, "admin");
 
-        await LoadContent();
+            if (hubConnection is not null)
+            {
+                await hubConnection.SendAsync("SendContentUpdate", "Deleted", name);
+            }
+
+            ToastService.ShowSuccess($"Content '{name}' deleted.");
+            await LoadContent();
+        }
+        catch (Exception)
+        {
+            ToastService.ShowError("Failed to delete content. Please try again.");
+        }
     }
 
     public async ValueTask DisposeAsync()

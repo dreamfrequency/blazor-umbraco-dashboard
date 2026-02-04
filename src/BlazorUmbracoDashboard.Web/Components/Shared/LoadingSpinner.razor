@@ -1,0 +1,24 @@
+@{
+    var spinnerClass = Size switch
+    {
+        "small" => "spinner-border spinner-border-sm",
+        "large" => "spinner-border spinner-border-lg",
+        _ => "spinner-border"
+    };
+}
+
+<div class="d-flex align-items-center gap-2 @CssClass">
+    <div class="@spinnerClass text-primary" role="status">
+        <span class="visually-hidden">Loading...</span>
+    </div>
+    @if (!string.IsNullOrWhiteSpace(Text))
+    {
+        <span>@Text</span>
+    }
+</div>
+
+@code {
+    [Parameter] public string Size { get; set; } = "medium";
+    [Parameter] public string? Text { get; set; }
+    [Parameter] public string? CssClass { get; set; }
+}
